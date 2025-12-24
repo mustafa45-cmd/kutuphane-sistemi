@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Akıllı Kütüphane Yönetim Sistemi</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header>
+        <h1>Akıllı Kütüphane Yönetim Sistemi</h1>
+        <div style="display: flex; align-items: center; gap: 15px;">
+          <div id="user-info"></div>
+          <button id="logout-btn" class="hidden" style="padding: 5px 15px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">Çıkış</button>
+        </div>
+      </header>
+
+      <main>
+        <section id="auth-section">
+          <div class="auth-tabs">
+            <button class="auth-tab active" data-tab="login">Giriş Yap</button>
+            <button class="auth-tab" data-tab="register">Kayıt Ol</button>
+          </div>
+
+          <!-- Giriş Formu -->
+          <div id="login-tab-content" class="auth-tab-content active">
+            <form id="login-form">
+              <label>
+                E-posta
+                <input type="email" id="login-email" placeholder="ornek@example.com" required autocomplete="email" />
+              </label>
+              <label>
+                Şifre
+                <input type="password" id="login-password" placeholder="Şifrenizi girin" required autocomplete="current-password" />
+              </label>
+              <button type="submit">Giriş</button>
+              <div class="test-users-info">
+                <h3>📋 Test Kullanıcıları</h3>
+                <div class="test-user-card">
+                  <div class="test-user-header">👤 Admin</div>
+                  <div class="test-user-credentials">
+                    <strong>E-posta:</strong> admin@example.com<br>
+                    <strong>Şifre:</strong> admin123
+                  </div>
+                  <button type="button" class="fill-credentials-btn" data-email="admin@example.com" data-password="admin123">
+                    Bilgileri Doldur
+                  </button>
+                </div>
+                <div class="test-user-card">
+                  <div class="test-user-header">🎓 Öğrenci</div>
+                  <div class="test-user-credentials">
+                    <strong>E-posta:</strong> student@example.com<br>
+                    <strong>Şifre:</strong> student123
+                  </div>
+                  <button type="button" class="fill-credentials-btn" data-email="student@example.com" data-password="student123">
+                    Bilgileri Doldur
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <!-- Kayıt Formu -->
+          <div id="register-tab-content" class="auth-tab-content">
+            <form id="register-form">
+              <label>
+                Ad Soyad
+                <input type="text" id="register-name" placeholder="Adınız ve soyadınız" required autocomplete="name" />
+              </label>
+              <label>
+                E-posta
+                <input type="email" id="register-email" placeholder="ornek@example.com" required autocomplete="email" />
+              </label>
+              <label>
+                Şifre
+                <input type="password" id="register-password" placeholder="En az 6 karakter" required autocomplete="new-password" minlength="6" />
+              </label>
+              <label>
+                Şifre Tekrar
+                <input type="password" id="register-password-confirm" placeholder="Şifrenizi tekrar girin" required autocomplete="new-password" minlength="6" />
+              </label>
+              <button type="submit">Kayıt Ol</button>
+              <p style="margin-top: 15px; font-size: 0.85em; color: #666; text-align: center;">
+                Zaten hesabınız var mı? <a href="#" id="switch-to-login" style="color: #2563eb; text-decoration: none;">Giriş yapın</a>
+              </p>
+            </form>
+          </div>
+        </section>
+
+        <section id="search-section" class="hidden">
+          <h2>Kitap Ara</h2>
+          <input type="text" id="search-query" placeholder="Kitap, yazar veya kategori..." />
+          <button id="search-button">Ara</button>
+          <table id="books-table">
+            <thead>
+              <tr>
+                <th>Başlık</th>
+                <th>Yazar</th>
+                <th>Kategori</th>
+                <th>Uygun</th>
+                <th>İşlem</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </section>
+
+        <section id="loans-section" class="hidden">
+          <h2>Ödünçlerim</h2>
+          <table id="loans-table">
+            <thead>
+              <tr>
+                <th>Kitap</th>
+                <th>Ödünç Tarihi</th>
+                <th>Son Tarih</th>
+                <th>Durum</th>
+                <th>İşlem</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </section>
+
+        <section id="requests-section" class="hidden">
+          <h2>Ödünç Alma İstekleri (Admin)</h2>
+          <table id="requests-table">
+            <thead>
+              <tr>
+                <th>Kullanıcı</th>
+                <th>E-posta</th>
+                <th>Kitap</th>
+                <th>Müsait</th>
+                <th>İstek Tarihi</th>
+                <th>İşlem</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </section>
+      </main>
+    </div>
+
+    <script src="main.js"></script>
+  </body>
+  </html>
+
+
+
