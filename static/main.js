@@ -145,15 +145,25 @@ function updateUI(skipDataLoad = false) {
     if (authSection) authSection.classList.add("hidden");
     if (searchSection) searchSection.classList.remove("hidden");
     if (loansSection) loansSection.classList.remove("hidden");
+    if (penaltiesSection) penaltiesSection.classList.remove("hidden");
     
-    // Admin ise istekler bölümünü göster
-    if (currentUser.role === "admin" && requestsSection) {
-      requestsSection.classList.remove("hidden");
-      if (!skipDataLoad) {
-        loadRequests().catch(e => console.error("[UI] İstekler yüklenirken hata:", e));
+    // Admin ise istekler ve admin cezalar bölümünü göster
+    if (currentUser.role === "admin") {
+      if (requestsSection) {
+        requestsSection.classList.remove("hidden");
+        if (!skipDataLoad) {
+          loadRequests().catch(e => console.error("[UI] İstekler yüklenirken hata:", e));
+        }
       }
-    } else if (requestsSection) {
-      requestsSection.classList.add("hidden");
+      if (adminPenaltiesSection) {
+        adminPenaltiesSection.classList.remove("hidden");
+        if (!skipDataLoad) {
+          loadAdminPenalties().catch(e => console.error("[UI] Admin cezalar yüklenirken hata:", e));
+        }
+      }
+    } else {
+      if (requestsSection) requestsSection.classList.add("hidden");
+      if (adminPenaltiesSection) adminPenaltiesSection.classList.add("hidden");
     }
     
     // Verileri yükle (sadece skipDataLoad false ise)
@@ -174,6 +184,10 @@ function updateUI(skipDataLoad = false) {
           console.log("[UI] Token geçersiz, temizleniyor...");
           clearAuth();
         }
+      });
+      
+      loadPenalties().catch(e => {
+        console.error("[UI] Cezalar yüklenirken hata:", e);
       });
     }
   } else {
@@ -198,6 +212,8 @@ function updateUI(skipDataLoad = false) {
     if (searchSection) searchSection.classList.add("hidden");
     if (loansSection) loansSection.classList.add("hidden");
     if (requestsSection) requestsSection.classList.add("hidden");
+    if (penaltiesSection) penaltiesSection.classList.add("hidden");
+    if (adminPenaltiesSection) adminPenaltiesSection.classList.add("hidden");
   }
 }
 
@@ -526,15 +542,28 @@ async function loadLoans() {
     loans.forEach((l) => {
       const tr = document.createElement("tr");
       const canReturn = l.status === "borrowed" && !l.return_date;
-      const statusText = {
+      
+      // Gecikme kontrolü
+      const dueDate = new Date(l.due_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const daysUntilDue = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+      const isOverdue = daysUntilDue < 0 && l.status === "borrowed";
+      const isWarning = daysUntilDue <= 3 && daysUntilDue >= 0 && l.status === "borrowed";
+      
+      let statusText = {
         "requested": "Beklemede",
         "approved": "Onaylandı",
-        "borrowed": "Ödünç Alındı",
+        "borrowed": isOverdue ? `⚠️ Geç (${Math.abs(daysUntilDue)} gün)` : isWarning ? `⚠️ Yaklaşıyor (${daysUntilDue} gün)` : "Ödünç Alındı",
         "returned": "İade Edildi",
         "late": "Geç İade",
         "rejected": "Reddedildi"
       }[l.status] || l.status;
       
+      // Gecikme durumunda kırmızı, uyarı durumunda sarı
+      const rowClass = isOverdue ? "overdue-row" : isWarning ? "warning-row" : "";
+      
+      tr.className = rowClass;
       tr.innerHTML = `
         <td>${l.book_title || ""}</td>
         <td>${l.loan_date}</td>
@@ -554,8 +583,10 @@ async function loadLoans() {
           alert("Kitap iade edildi!");
           await loadBooks();
           await loadLoans();
+          await loadPenalties();
           if (currentUser && currentUser.role === "admin") {
             await loadRequests();
+            await loadAdminPenalties();
           }
         } catch (err) {
           alert(err.message);
@@ -616,6 +647,7 @@ async function loadRequests() {
           alert("İstek onaylandı!");
           await loadBooks();
           await loadRequests();
+          await loadAdminPenalties();
         } catch (err) {
           alert(err.message);
         }
@@ -637,6 +669,111 @@ async function loadRequests() {
     });
   } catch (err) {
     console.error("İstekler yüklenirken hata:", err);
+  }
+}
+
+/**
+ * Kullanıcının cezalarını yükler ve gösterir
+ */
+async function loadPenalties() {
+  try {
+    const penalties = await apiFetch("/loans/penalties");
+    const tbody = document.querySelector("#penalties-table tbody");
+    if (!tbody) return;
+    
+    tbody.innerHTML = "";
+    
+    // Toplam ödenmemiş ceza hesapla
+    let totalUnpaid = 0;
+    
+    if (penalties.length === 0) {
+      tbody.innerHTML = "<tr><td colspan='5' style='text-align: center;'>Ceza kaydınız bulunmamaktadır</td></tr>";
+      document.getElementById("total-penalty-amount").textContent = "0.00";
+      return;
+    }
+    
+    penalties.forEach((p) => {
+      if (!p.is_paid) {
+        totalUnpaid += p.amount;
+      }
+      
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${p.book_title || ""}</td>
+        <td>${p.days_late} gün</td>
+        <td><strong>${p.amount.toFixed(2)} TL</strong></td>
+        <td>${p.is_paid ? '<span style="color: green;">✅ Ödendi</span>' : '<span style="color: red;">❌ Ödenmedi</span>'}</td>
+        <td>${new Date(p.created_at).toLocaleDateString('tr-TR')}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+    
+    // Toplam ceza miktarını güncelle
+    const totalElement = document.getElementById("total-penalty-amount");
+    if (totalElement) {
+      totalElement.textContent = totalUnpaid.toFixed(2);
+      if (totalUnpaid > 0) {
+        totalElement.parentElement.style.background = "#fee2e2";
+        totalElement.parentElement.style.borderLeftColor = "#ef4444";
+      }
+    }
+  } catch (err) {
+    console.error("Cezalar yüklenirken hata:", err);
+  }
+}
+
+/**
+ * Admin için tüm cezaları yükler ve gösterir
+ */
+async function loadAdminPenalties() {
+  if (!currentUser || currentUser.role !== "admin") return;
+  
+  try {
+    const penalties = await apiFetch("/admin/penalties");
+    const tbody = document.querySelector("#admin-penalties-table tbody");
+    if (!tbody) return;
+    
+    tbody.innerHTML = "";
+    
+    if (penalties.length === 0) {
+      tbody.innerHTML = "<tr><td colspan='8' style='text-align: center;'>Ceza kaydı bulunmamaktadır</td></tr>";
+      return;
+    }
+    
+    penalties.forEach((p) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${p.user_name || ""}</td>
+        <td>${p.user_email || ""}</td>
+        <td>${p.book_title || ""}</td>
+        <td>${p.days_late} gün</td>
+        <td><strong>${p.amount.toFixed(2)} TL</strong></td>
+        <td>${p.is_paid ? '<span style="color: green;">✅ Ödendi</span>' : '<span style="color: red;">❌ Ödenmedi</span>'}</td>
+        <td>${new Date(p.created_at).toLocaleDateString('tr-TR')}</td>
+        <td>
+          ${!p.is_paid ? `<button class="mark-paid-btn" data-penalty-id="${p.id}">Ödendi Olarak İşaretle</button>` : ""}
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+    
+    // "Ödendi olarak işaretle" butonları
+    tbody.querySelectorAll("button.mark-paid-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const penaltyId = parseInt(btn.getAttribute("data-penalty-id"), 10);
+        if (!confirm("Bu cezayı ödendi olarak işaretlemek istediğinize emin misiniz?")) return;
+        
+        try {
+          await apiFetch(`/admin/penalties/${penaltyId}/mark-paid`, { method: "POST" });
+          alert("Ceza ödendi olarak işaretlendi!");
+          await loadAdminPenalties();
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+    });
+  } catch (err) {
+    console.error("Admin cezalar yüklenirken hata:", err);
   }
 }
 

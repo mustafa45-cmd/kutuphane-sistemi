@@ -146,6 +146,42 @@ td {
   text-decoration: underline;
 }
 
+/* Ceza ve gecikme uyarıları */
+.overdue-row {
+  background-color: #fee2e2 !important;
+  border-left: 4px solid #ef4444;
+}
+
+.warning-row {
+  background-color: #fef3c7 !important;
+  border-left: 4px solid #f59e0b;
+}
+
+#penalties-summary {
+  margin-bottom: 15px;
+  padding: 10px;
+  border-radius: 6px;
+}
+
+#penalties-summary strong {
+  font-size: 1.1rem;
+}
+
+#penalties-table td,
+#admin-penalties-table td {
+  padding: 0.75rem;
+}
+
+.mark-paid-btn {
+  background: #10b981;
+  font-size: 0.85rem;
+  padding: 0.4rem 0.8rem;
+}
+
+.mark-paid-btn:hover {
+  background: #059669;
+}
+
 /* Test Kullanıcı Bilgileri */
 .test-users-info {
   margin-top: 20px;

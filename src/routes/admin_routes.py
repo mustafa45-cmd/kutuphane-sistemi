@@ -8,7 +8,7 @@ from flask import Blueprint, jsonify, request
 
 from src.decorators import jwt_required
 from src.db import db
-from src.models import Author, Category, User
+from src.models import Author, Category, User, Penalty, Loan
 from src.security import hash_password
 
 
@@ -253,6 +253,75 @@ def create_user():
     db.session.add(user)
     db.session.commit()
     return jsonify({"id": user.id}), 201
+
+
+# ========== CEZA YÖNETİMİ ==========
+
+@admin_bp.get("/penalties")
+@jwt_required(role="admin")
+def list_all_penalties():
+    """
+    Tüm cezaları listeler (sadece admin).
+    
+    Endpoint: GET /api/admin/penalties
+    
+    Returns:
+        200: Tüm cezalar listesi (kullanıcı, kitap, tutar, durum bilgileri dahil)
+        401: Yetkisiz erişim
+        403: Admin yetkisi gerekli
+    """
+    penalties = (
+        Penalty.query.join(Loan)
+        .join(User)
+        .order_by(Penalty.created_at.desc())
+        .all()
+    )
+    result = []
+    for p in penalties:
+        result.append(
+            {
+                "id": p.id,
+                "user_id": p.user_id,
+                "user_name": p.loan.user.full_name if p.loan and p.loan.user else None,
+                "user_email": p.loan.user.email if p.loan and p.loan.user else None,
+                "loan_id": p.loan_id,
+                "book_title": p.loan.book.title if p.loan and p.loan.book else None,
+                "amount": float(p.amount),
+                "days_late": p.days_late,
+                "is_paid": p.is_paid,
+                "created_at": p.created_at.isoformat(),
+            }
+        )
+    return jsonify(result)
+
+
+@admin_bp.post("/penalties/<int:penalty_id>/mark-paid")
+@jwt_required(role="admin")
+def mark_penalty_paid(penalty_id: int):
+    """
+    Cezayı ödendi olarak işaretler (sadece admin).
+    
+    Endpoint: POST /api/admin/penalties/<penalty_id>/mark-paid
+    
+    Returns:
+        200: Ceza ödendi olarak işaretlendi
+        404: Ceza bulunamadı
+        400: Ceza zaten ödendi
+        401: Yetkisiz erişim
+        403: Admin yetkisi gerekli
+    """
+    penalty = Penalty.query.get_or_404(penalty_id)
+    
+    if penalty.is_paid:
+        return jsonify({"message": "Ceza zaten ödendi olarak işaretlenmiş"}), 400
+    
+    penalty.is_paid = True
+    db.session.commit()
+    
+    return jsonify({
+        "message": "Ceza ödendi olarak işaretlendi",
+        "penalty_id": penalty.id
+    })
 
 
 
