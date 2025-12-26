@@ -160,3 +160,5 @@
 - Veri kaybı olmaz
 - Güvenli bir işlemdir
 
+
+

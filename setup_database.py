@@ -1,6 +1,21 @@
 """
 MySQL Veritabanı Kurulum Scripti
-Bu script, db_schema.sql dosyasını MySQL'e yükler.
+
+Bu script, db_schema.sql dosyasını MySQL veritabanına yükler.
+Veritabanı şemasını, tabloları, stored procedure'leri ve trigger'ları oluşturur.
+
+Kullanım:
+    python setup_database.py
+
+Gereksinimler:
+    - MySQL yüklü ve çalışıyor olmalı
+    - .env dosyasında DB_USER, DB_PASSWORD, DB_HOST tanımlı olmalı (veya varsayılan değerler kullanılır)
+    - db_schema.sql dosyası mevcut dizinde olmalı
+
+Alternatif Yöntemler:
+    - MySQL Workbench ile db_schema.sql dosyasını çalıştırın
+    - phpMyAdmin ile SQL dosyasını import edin
+    - Komut satırından: mysql -u root -p < db_schema.sql
 """
 import os
 import subprocess
@@ -104,4 +119,6 @@ def setup_database():
 if __name__ == "__main__":
     success = setup_database()
     sys.exit(0 if success else 1)
+
+
 

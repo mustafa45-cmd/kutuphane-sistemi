@@ -1,9 +1,29 @@
+/**
+ * Akıllı Kütüphane Yönetim Sistemi - Frontend JavaScript
+ * 
+ * Bu dosya, kullanıcı arayüzü ile backend API arasındaki iletişimi yönetir.
+ * 
+ * Özellikler:
+ * - JWT tabanlı kimlik doğrulama
+ * - Kitap arama ve listeleme
+ * - Ödünç alma istekleri (öğrenci) ve onaylama (admin)
+ * - Kitap iade işlemleri
+ * - Cezaları görüntüleme
+ * - localStorage ile oturum yönetimi
+ */
+
+// API base URL'i
 const API_BASE = "http://localhost:5000/api";
 
+// Global state: Mevcut kullanıcının token'ı ve bilgileri
 let accessToken = null;
 let currentUser = null;
 
-// JWT token'ı decode et (exp kontrolü için)
+/**
+ * JWT token'ı decode eder (expiration kontrolü için)
+ * @param {string} token - JWT token string
+ * @returns {Object|null} Decode edilmiş payload veya null
+ */
 function decodeJWT(token) {
   try {
     const base64Url = token.split('.')[1];
@@ -17,7 +37,10 @@ function decodeJWT(token) {
   }
 }
 
-// Token'ı localStorage'dan yükle ve geçerliliğini kontrol et
+/**
+ * Token'ı localStorage'dan yükler ve geçerliliğini kontrol eder
+ * Sayfa yüklendiğinde otomatik olarak çağrılır
+ */
 function loadAuth() {
   const savedToken = localStorage.getItem("accessToken");
   const savedUser = localStorage.getItem("currentUser");
@@ -55,7 +78,11 @@ function loadAuth() {
   }
 }
 
-// Token'ı localStorage'a kaydet
+/**
+ * Token ve kullanıcı bilgilerini kaydeder (hem memory hem localStorage)
+ * @param {string} token - JWT access token
+ * @param {Object} user - Kullanıcı bilgileri (id, full_name, email, role)
+ */
 function setAuth(token, user) {
   accessToken = token;
   currentUser = user;
@@ -70,7 +97,10 @@ function setAuth(token, user) {
   updateUI();
 }
 
-// Auth bilgilerini temizle
+/**
+ * Auth bilgilerini temizler (logout işlemi)
+ * Hem memory'den hem localStorage'dan siler
+ */
 function clearAuth() {
   accessToken = null;
   currentUser = null;
@@ -79,7 +109,10 @@ function clearAuth() {
   updateUI();
 }
 
-// Token'ın geçerli olup olmadığını kontrol et
+/**
+ * Token'ın geçerli olup olmadığını kontrol eder (expiration kontrolü)
+ * @returns {boolean} Token geçerliyse true, değilse false
+ */
 function isTokenValid() {
   if (!accessToken) return false;
   
@@ -90,7 +123,12 @@ function isTokenValid() {
   return payload.exp > now;
 }
 
-// UI'ı güncelle
+/**
+ * Kullanıcı durumuna göre UI'ı günceller
+ * Giriş yapmış kullanıcılar için: kitap listesi, ödünçler, admin istekleri gösterilir
+ * Giriş yapmamış kullanıcılar için: login/register formu gösterilir
+ * @param {boolean} skipDataLoad - Veri yükleme işlemini atla (sayfa yüklenirken alert göstermemek için)
+ */
 function updateUI(skipDataLoad = false) {
   const userInfo = document.getElementById("user-info");
   const logoutBtn = document.getElementById("logout-btn");
@@ -233,6 +271,13 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
+/**
+ * API istekleri için genel fetch wrapper fonksiyonu
+ * Otomatik olarak Authorization header ekler ve hata yönetimi yapar
+ * @param {string} path - API endpoint path'i (örn: "/books")
+ * @param {Object} options - Fetch options (method, body, headers, vb.)
+ * @returns {Promise<Object>} API response data
+ */
 async function apiFetch(path, options = {}) {
   // Login ve register endpoint'leri için token gerekmez
   const isAuthEndpoint = path === "/auth/login" || path === "/auth/register";
@@ -290,6 +335,11 @@ async function apiFetch(path, options = {}) {
   }
 }
 
+/**
+ * Login form submit handler
+ * Kullanıcı girişi yapar ve token'ı kaydeder
+ * @param {Event} event - Form submit event
+ */
 async function handleLogin(event) {
   event.preventDefault();
   const email = document.getElementById("login-email").value.trim();
@@ -331,6 +381,11 @@ async function handleLogin(event) {
   }
 }
 
+/**
+ * Register form submit handler
+ * Yeni kullanıcı kaydı oluşturur
+ * @param {Event} event - Form submit event
+ */
 async function handleRegister(event) {
   event.preventDefault();
   const fullName = document.getElementById("register-name").value.trim();
@@ -393,6 +448,10 @@ async function handleRegister(event) {
   }
 }
 
+/**
+ * Kitapları API'den yükler ve tabloda gösterir
+ * Admin kullanıcılar için "Ödünç Al", öğrenciler için "İstek Gönder" butonu gösterilir
+ */
 async function loadBooks() {
   const q = document.getElementById("search-query").value || "";
   try {
@@ -449,6 +508,10 @@ async function loadBooks() {
   }
 }
 
+/**
+ * Kullanıcının ödünç aldığı kitapları yükler ve tabloda gösterir
+ * İade edilebilir kitaplar için "İade Et" butonu gösterilir
+ */
 async function loadLoans() {
   try {
     const loans = await apiFetch("/loans/my");
@@ -504,6 +567,10 @@ async function loadLoans() {
   }
 }
 
+/**
+ * Bekleyen ödünç alma isteklerini yükler (sadece admin)
+ * Admin bu istekleri onaylayabilir veya reddedebilir
+ */
 async function loadRequests() {
   // Sadece admin için
   if (!currentUser || currentUser.role !== "admin") return;

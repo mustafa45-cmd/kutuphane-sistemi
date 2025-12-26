@@ -1,6 +1,14 @@
 """
-Test kitapları ekleme scripti
-Sisteme 5-10 test kitabı ekler (yazarlar ve kategoriler dahil)
+Test Kitapları Ekleme Scripti
+
+Bu script, sisteme test amaçlı kitaplar, yazarlar ve kategoriler ekler.
+Toplam 10 kitap, 7 yazar ve 5 kategori oluşturulur.
+
+Kullanım:
+    python add_test_books.py
+
+Not: Veritabanı ve test kullanıcıları kurulduktan sonra çalıştırın.
+     Aynı ISBN'li kitaplar tekrar eklenmez (mevcut olanlar atlanır).
 """
 import sys
 from app import create_app
@@ -188,4 +196,6 @@ def add_test_books():
 
 if __name__ == "__main__":
     add_test_books()
+
+
 

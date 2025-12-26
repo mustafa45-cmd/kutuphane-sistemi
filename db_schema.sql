@@ -1,13 +1,37 @@
--- Akıllı Kütüphane Yönetim Sistemi - MySQL Şeması
+-- ============================================================================
+-- Akıllı Kütüphane Yönetim Sistemi - MySQL Veritabanı Şeması
+-- ============================================================================
+-- 
+-- Bu dosya, kütüphane yönetim sistemi için gerekli tüm veritabanı yapısını içerir:
+--   - Tablolar (users, authors, categories, books, loans, penalties)
+--   - Foreign key ilişkileri
+--   - Indexler (performans için)
+--   - Stored procedure'ler (sp_borrow_book, sp_return_book)
+--   - Trigger'lar (trg_create_penalty_after_return)
+--
 -- Referans: `proje2025-2026.pdf` (Akıllı Kütüphane Yönetim Sistemi)
+--
+-- Kullanım:
+--   1. MySQL komut satırı: mysql -u root -p < db_schema.sql
+--   2. MySQL Workbench: File > Run SQL Script
+--   3. phpMyAdmin: SQL sekmesi > Import
+--   4. Python script: python setup_database.py
+-- ============================================================================
 
+-- Veritabanını oluştur (yoksa)
 CREATE DATABASE IF NOT EXISTS smart_library
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
 
 USE smart_library;
 
--- Kullanıcı rolleri için enum benzeri çözüm (student, staff, admin)
+-- ============================================================================
+-- TABLOLAR
+-- ============================================================================
+
+-- Kullanıcılar Tablosu
+-- Sistemdeki tüm kullanıcıları (öğrenci, personel, admin) içerir
+-- Roller: student (öğrenci), staff (personel), admin (yönetici)
 CREATE TABLE users (
     id           INT AUTO_INCREMENT PRIMARY KEY,
     full_name    VARCHAR(100)     NOT NULL,
@@ -18,27 +42,34 @@ CREATE TABLE users (
     created_at   DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Yazarlar Tablosu
+-- Kitap yazarlarını içerir
 CREATE TABLE authors (
     id        INT AUTO_INCREMENT PRIMARY KEY,
     name      VARCHAR(120) NOT NULL,
-    bio       TEXT         NULL
+    bio       TEXT         NULL  -- Yazar biyografisi (opsiyonel)
 );
 
+-- Kategoriler Tablosu
+-- Kitap kategorilerini içerir (örn: Roman, Polisiye, Bilim Kurgu)
 CREATE TABLE categories (
     id        INT AUTO_INCREMENT PRIMARY KEY,
-    name      VARCHAR(80) NOT NULL UNIQUE,
-    description TEXT      NULL
+    name      VARCHAR(80) NOT NULL UNIQUE,  -- Kategori adı (benzersiz)
+    description TEXT      NULL              -- Kategori açıklaması (opsiyonel)
 );
 
+-- Kitaplar Tablosu
+-- Kütüphanedeki kitapları içerir
+-- Her kitap bir yazara ve bir kategoriye aittir
 CREATE TABLE books (
     id            INT AUTO_INCREMENT PRIMARY KEY,
-    title         VARCHAR(200) NOT NULL,
-    isbn          VARCHAR(20)  NOT NULL UNIQUE,
-    author_id     INT          NOT NULL,
-    category_id   INT          NOT NULL,
-    total_copies  INT          NOT NULL DEFAULT 1,
-    available_copies INT       NOT NULL DEFAULT 1,
-    created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    title         VARCHAR(200) NOT NULL,           -- Kitap başlığı
+    isbn          VARCHAR(20)  NOT NULL UNIQUE,    -- ISBN numarası (benzersiz)
+    author_id     INT          NOT NULL,           -- Yazar ID (foreign key)
+    category_id   INT          NOT NULL,           -- Kategori ID (foreign key)
+    total_copies  INT          NOT NULL DEFAULT 1,  -- Toplam kopya sayısı
+    available_copies INT       NOT NULL DEFAULT 1,  -- Mevcut kopya sayısı
+    created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,  -- Kayıt tarihi
     CONSTRAINT fk_books_author
       FOREIGN KEY (author_id) REFERENCES authors(id)
       ON DELETE RESTRICT ON UPDATE CASCADE,
@@ -47,15 +78,19 @@ CREATE TABLE books (
       ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
+-- Ödünç Alma Tablosu
+-- Kullanıcıların kitapları ödünç alma işlemlerini içerir
+-- Durumlar: borrowed (ödünç alındı), returned (iade edildi), late (geç iade)
+-- Not: Bu tablo daha sonra 'requested', 'approved', 'rejected' durumları eklenmiştir
 CREATE TABLE loans (
     id             INT AUTO_INCREMENT PRIMARY KEY,
-    user_id        INT          NOT NULL,
-    book_id        INT          NOT NULL,
-    loan_date      DATE         NOT NULL,
-    due_date       DATE         NOT NULL,
-    return_date    DATE         NULL,
-    status         ENUM('borrowed','returned','late') NOT NULL DEFAULT 'borrowed',
-    created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    user_id        INT          NOT NULL,          -- Kullanıcı ID (foreign key)
+    book_id        INT          NOT NULL,          -- Kitap ID (foreign key)
+    loan_date      DATE         NOT NULL,          -- Ödünç alma tarihi
+    due_date       DATE         NOT NULL,          -- İade tarihi
+    return_date    DATE         NULL,              -- Gerçek iade tarihi (opsiyonel)
+    status         ENUM('borrowed','returned','late') NOT NULL DEFAULT 'borrowed',  -- Durum
+    created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,  -- Kayıt tarihi
     CONSTRAINT fk_loans_user
       FOREIGN KEY (user_id) REFERENCES users(id)
       ON DELETE CASCADE ON UPDATE CASCADE,
@@ -64,14 +99,17 @@ CREATE TABLE loans (
       ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
+-- Cezalar Tablosu
+-- Gecikmiş kitap iadeleri için otomatik olarak oluşturulan cezaları içerir
+-- Trigger (trg_create_penalty_after_return) ile otomatik oluşturulur
 CREATE TABLE penalties (
     id           INT AUTO_INCREMENT PRIMARY KEY,
-    loan_id      INT          NOT NULL UNIQUE,
-    user_id      INT          NOT NULL,
-    amount       DECIMAL(10,2) NOT NULL,
-    days_late    INT          NOT NULL,
-    created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    is_paid      TINYINT(1)   NOT NULL DEFAULT 0,
+    loan_id      INT          NOT NULL UNIQUE,     -- Ödünç kaydı ID (benzersiz, foreign key)
+    user_id      INT          NOT NULL,            -- Kullanıcı ID (foreign key)
+    amount       DECIMAL(10,2) NOT NULL,          -- Ceza tutarı (10,2 formatında)
+    days_late    INT          NOT NULL,           -- Gecikme gün sayısı
+    created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,  -- Ceza oluşturulma tarihi
+    is_paid      TINYINT(1)   NOT NULL DEFAULT 0,  -- Ceza ödendi mi? (0: hayır, 1: evet)
     CONSTRAINT fk_penalties_loan
       FOREIGN KEY (loan_id) REFERENCES loans(id)
       ON DELETE CASCADE ON UPDATE CASCADE,
@@ -80,14 +118,27 @@ CREATE TABLE penalties (
       ON DELETE CASCADE ON UPDATE CASCADE
 );
 
--- Örnek indeksler
-CREATE INDEX idx_books_title ON books(title);
+-- ============================================================================
+-- İNDEKSLER (Performans İyileştirmeleri)
+-- ============================================================================
+-- Arama ve sorgu performansını artırmak için oluşturulan indeksler
+
+CREATE INDEX idx_books_title ON books(title);  -- Kitap başlığına göre arama
 CREATE INDEX idx_books_author ON books(author_id);
 CREATE INDEX idx_books_category ON books(category_id);
 CREATE INDEX idx_loans_user ON loans(user_id);
 CREATE INDEX idx_loans_book ON loans(book_id);
 
--- STORED PROCEDURE: Kitap ödünç verme (iş kuralları ile)
+-- ============================================================================
+-- STORED PROCEDURE'LER
+-- ============================================================================
+
+-- Kitap Ödünç Verme Stored Procedure
+-- İş kuralları:
+--   - Kitap mevcut olmalı
+--   - Müsait kopya sayısı > 0 olmalı
+--   - Ödünç kaydı oluşturulur
+--   - Kitap mevcut kopya sayısı 1 azalır
 DELIMITER $$
 CREATE PROCEDURE sp_borrow_book(
     IN p_user_id INT,
@@ -127,7 +178,13 @@ BEGIN
 END$$
 DELIMITER ;
 
--- STORED PROCEDURE: Kitap iade etme
+-- Kitap İade Etme Stored Procedure
+-- İş kuralları:
+--   - Ödünç kaydı bulunmalı
+--   - İade tarihi güncellenir
+--   - Durum 'returned' olur
+--   - Kitap mevcut kopya sayısı 1 artar
+--   - Gecikme varsa trigger otomatik ceza oluşturur
 DELIMITER $$
 CREATE PROCEDURE sp_return_book(
     IN p_loan_id INT
@@ -156,8 +213,18 @@ BEGIN
 END$$
 DELIMITER ;
 
--- TRIGGER: Geç iade durumunda otomatik ceza oluşturma
--- Geri dönüş yapıldığında, return_date > due_date ise satır ekler
+-- ============================================================================
+-- TRIGGER'LAR
+-- ============================================================================
+
+-- Geç İade Ceza Oluşturma Trigger'ı
+-- Çalışma zamanı: loans tablosunda UPDATE işlemi sonrası
+-- Mantık:
+--   - return_date > due_date ise (geç iade)
+--   - Gecikme gün sayısı hesaplanır
+--   - Günlük 5 birim ceza uygulanır (days_late * 5.00)
+--   - penalties tablosuna yeni kayıt eklenir
+--   - Eğer ceza zaten varsa tekrar eklenmez
 DELIMITER $$
 CREATE TRIGGER trg_create_penalty_after_return
 AFTER UPDATE ON loans
@@ -183,10 +250,17 @@ BEGIN
 END$$
 DELIMITER ;
 
--- Örnek başlangıç verileri
+-- ============================================================================
+-- ÖRNEK VERİLER (Opsiyonel)
+-- ============================================================================
+-- Not: Bu veriler sadece örnek amaçlıdır.
+-- Gerçek kullanıcılar create_test_user.py scripti ile oluşturulmalıdır.
+
 INSERT INTO users(full_name, email, password_hash, role)
 VALUES
 ('Admin User', 'admin@example.com', 'CHANGE_ME_HASH', 'admin');
+
+
 
 
 

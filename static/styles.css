@@ -1,3 +1,15 @@
+/**
+ * Akıllı Kütüphane Yönetim Sistemi - CSS Stil Dosyası
+ * 
+ * Bu dosya tüm sayfa stillerini içerir:
+ * - Genel layout ve tipografi
+ * - Form stilleri (login, register)
+ * - Tab sistemi stilleri
+ * - Tablo stilleri
+ * - Buton stilleri
+ * - Responsive tasarım
+ */
+
 body {
   margin: 0;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;

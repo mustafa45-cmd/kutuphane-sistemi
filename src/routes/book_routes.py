@@ -1,3 +1,8 @@
+"""
+Kitap Yönetimi Route'ları
+Kitap listeleme, arama, oluşturma, güncelleme ve silme işlemlerini yönetir.
+"""
+
 from flask import Blueprint, jsonify, request
 from sqlalchemy import or_
 
@@ -6,11 +11,28 @@ from src.db import db
 from src.models import Book, Author, Category
 
 
+# Kitap yönetimi blueprint'i
+# URL prefix: /api/books
 book_bp = Blueprint("books", __name__)
 
 
 @book_bp.get("/")
 def list_books():
+    """
+    Kitapları listeler ve arama yapar.
+    
+    Endpoint: GET /api/books?q=arama_terimi
+    
+    Query Parameters:
+        q (optional): Arama terimi (kitap adı, yazar adı veya kategori adı)
+    
+    Özellikler:
+        - Giriş yapmış kullanıcılar için: Ödünç aldıkları kitaplar listede görünmez
+        - Admin kullanıcılar için: Tüm kitaplar görünür
+    
+    Returns:
+        200: Kitap listesi (JSON array)
+    """
     from src.models import Loan
     import jwt
     import os
@@ -74,6 +96,27 @@ def list_books():
 @book_bp.post("/")
 @jwt_required(role="admin")
 def create_book():
+    """
+    Yeni kitap oluşturur (sadece admin).
+    
+    Endpoint: POST /api/books
+    
+    Request Body:
+        {
+            "title": "Kitap Adı",
+            "isbn": "978-...",
+            "author_id": 1,
+            "category_id": 1,
+            "total_copies": 5,
+            "available_copies": 5 (optional)
+        }
+    
+    Returns:
+        201: Kitap oluşturuldu (kitap ID'si)
+        400: Eksik alanlar
+        401: Yetkisiz erişim
+        403: Admin yetkisi gerekli
+    """
     data = request.get_json() or {}
     required = ["title", "isbn", "author_id", "category_id", "total_copies"]
     if not all(field in data for field in required):
@@ -95,6 +138,27 @@ def create_book():
 @book_bp.put("/<int:book_id>")
 @jwt_required(role="admin")
 def update_book(book_id: int):
+    """
+    Kitap bilgilerini günceller (sadece admin).
+    
+    Endpoint: PUT /api/books/<book_id>
+    
+    Request Body (tüm alanlar optional):
+        {
+            "title": "Yeni Kitap Adı",
+            "isbn": "978-...",
+            "author_id": 1,
+            "category_id": 1,
+            "total_copies": 5,
+            "available_copies": 3
+        }
+    
+    Returns:
+        200: Kitap güncellendi
+        404: Kitap bulunamadı
+        401: Yetkisiz erişim
+        403: Admin yetkisi gerekli
+    """
     book = Book.query.get_or_404(book_id)
     data = request.get_json() or {}
 
@@ -109,6 +173,17 @@ def update_book(book_id: int):
 @book_bp.delete("/<int:book_id>")
 @jwt_required(role="admin")
 def delete_book(book_id: int):
+    """
+    Kitabı siler (sadece admin).
+    
+    Endpoint: DELETE /api/books/<book_id>
+    
+    Returns:
+        200: Kitap silindi
+        404: Kitap bulunamadı
+        401: Yetkisiz erişim
+        403: Admin yetkisi gerekli
+    """
     book = Book.query.get_or_404(book_id)
     db.session.delete(book)
     db.session.commit()

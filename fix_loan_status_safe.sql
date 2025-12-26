@@ -44,3 +44,5 @@ SELECT status, COUNT(*) as count FROM loans GROUP BY status;
 
 SELECT 'Status enum basariyla guncellendi!' as result;
 
+
+

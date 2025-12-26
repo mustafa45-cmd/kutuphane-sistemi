@@ -1,4 +1,26 @@
--- Loans tablosundaki status enum'ını güvenli şekilde güncelle
+-- ============================================================================
+-- Loan Status Enum Güvenli Güncelleme Scripti
+-- ============================================================================
+-- 
+-- Bu script, loans tablosundaki status enum'ını güvenli şekilde günceller.
+-- Mevcut veriler korunur ve yeni enum değerlerine uygun şekilde dönüştürülür.
+--
+-- Yeni enum değerleri:
+--   - requested: İstek gönderildi (beklemede)
+--   - approved: Admin onayladı (henüz alınmadı)
+--   - borrowed: Kitap ödünç alındı
+--   - returned: Kitap iade edildi
+--   - late: Geç iade
+--   - rejected: İstek reddedildi
+--
+-- Kullanım:
+--   mysql -u root -p smart_library < fix_loan_status.sql
+--   veya MySQL Workbench / phpMyAdmin ile çalıştırın
+--
+-- Not: Bu script veri kaybına neden olmaz. Geçici sütun kullanarak
+--      güvenli bir şekilde güncelleme yapar.
+-- ============================================================================
+
 USE smart_library;
 
 -- Önce mevcut verileri kontrol et

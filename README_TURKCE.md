@@ -146,3 +146,5 @@ setup_database.bat
 
 Bu proje eğitim amaçlı geliştirilmiştir.
 
+
+

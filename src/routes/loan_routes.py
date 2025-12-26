@@ -1,3 +1,8 @@
+"""
+Ödünç Alma Yönetimi Route'ları
+Kitap ödünç alma, iade, istek onaylama/reddetme işlemlerini yönetir.
+"""
+
 from datetime import date, timedelta
 
 from flask import Blueprint, jsonify, request, g
@@ -8,13 +13,35 @@ from src.db import db
 from src.models import Loan, Book, Penalty
 
 
+# Ödünç alma yönetimi blueprint'i
+# URL prefix: /api/loans
 loan_bp = Blueprint("loans", __name__)
 
 
 @loan_bp.post("/")
 @jwt_required()
 def request_loan():
-    """Öğrenci ödünç alma isteği gönderir, Admin direkt ödünç alır"""
+    """
+    Ödünç alma isteği gönderir veya direkt ödünç alır.
+    
+    Endpoint: POST /api/loans
+    
+    İşleyiş:
+        - Admin: Direkt ödünç alır (status="borrowed", kitap sayısı azalır)
+        - Öğrenci/Staff: İstek gönderir (status="requested", kitap sayısı azalmaz)
+    
+    Request Body:
+        {
+            "book_id": 1,
+            "days": 14 (optional, varsayılan: 14)
+        }
+    
+    Returns:
+        201: İstek oluşturuldu veya kitap ödünç verildi
+        400: Geçersiz istek (kitap müsait değil, zaten istek var, vb.)
+        401: Yetkisiz erişim
+        500: Sunucu hatası
+    """
     try:
         data = request.get_json() or {}
         book_id = data.get("book_id")
@@ -79,6 +106,23 @@ def request_loan():
 @loan_bp.post("/<int:loan_id>/return")
 @jwt_required()
 def return_book(loan_id: int):
+    """
+    Kitabı iade eder.
+    
+    Endpoint: POST /api/loans/<loan_id>/return
+    
+    İşleyiş:
+        - İade tarihi kaydedilir
+        - Gecikmiş ise status="late", değilse status="returned"
+        - Kitap mevcut kopya sayısı artırılır
+        - Gecikme varsa otomatik ceza oluşturulur (trigger ile)
+    
+    Returns:
+        200: Kitap iade edildi
+        400: Kitap zaten iade edilmiş
+        403: Bu işlem için yetkiniz yok
+        404: Ödünç kaydı bulunamadı
+    """
     loan = Loan.query.get_or_404(loan_id)
     if loan.user_id != g.current_user_id and g.current_user_role != "admin":
         return jsonify({"message": "Not allowed"}), 403
@@ -104,7 +148,15 @@ def return_book(loan_id: int):
 @loan_bp.get("/my")
 @jwt_required()
 def my_loans():
-    """Kullanıcının kendi ödünç istekleri ve ödünçleri"""
+    """
+    Kullanıcının kendi ödünç istekleri ve ödünçlerini listeler.
+    
+    Endpoint: GET /api/loans/my
+    
+    Returns:
+        200: Ödünç listesi (durum, tarihler, ceza bilgileri dahil)
+        401: Yetkisiz erişim
+    """
     loans = (
         Loan.query.filter_by(user_id=g.current_user_id)
         .order_by(Loan.created_at.desc())
@@ -137,7 +189,16 @@ def my_loans():
 @loan_bp.get("/requests")
 @jwt_required(role="admin")
 def list_requests():
-    """Admin: Tüm bekleyen ödünç isteklerini listeler"""
+    """
+    Tüm bekleyen ödünç isteklerini listeler (sadece admin).
+    
+    Endpoint: GET /api/loans/requests
+    
+    Returns:
+        200: Bekleyen istek listesi (kullanıcı, kitap, tarih bilgileri dahil)
+        401: Yetkisiz erişim
+        403: Admin yetkisi gerekli
+    """
     requests = (
         Loan.query.filter_by(status="requested")
         .order_by(Loan.created_at.asc())
@@ -165,7 +226,23 @@ def list_requests():
 @loan_bp.post("/<int:loan_id>/approve")
 @jwt_required(role="admin")
 def approve_loan(loan_id: int):
-    """Admin: Ödünç alma isteğini onaylar"""
+    """
+    Ödünç alma isteğini onaylar (sadece admin).
+    
+    Endpoint: POST /api/loans/<loan_id>/approve
+    
+    İşleyiş:
+        - İstek durumu "requested" -> "borrowed" olur
+        - Kitap mevcut kopya sayısı 1 azalır
+        - Ödünç alma tarihi güncellenir
+    
+    Returns:
+        200: İstek onaylandı
+        400: İstek zaten onaylanmış veya reddedilmiş
+        404: İstek veya kitap bulunamadı
+        401: Yetkisiz erişim
+        403: Admin yetkisi gerekli
+    """
     loan = Loan.query.get_or_404(loan_id)
     
     if loan.status != "requested":
@@ -193,7 +270,22 @@ def approve_loan(loan_id: int):
 @loan_bp.post("/<int:loan_id>/reject")
 @jwt_required(role="admin")
 def reject_loan(loan_id: int):
-    """Admin: Ödünç alma isteğini reddeder"""
+    """
+    Ödünç alma isteğini reddeder (sadece admin).
+    
+    Endpoint: POST /api/loans/<loan_id>/reject
+    
+    İşleyiş:
+        - İstek durumu "requested" -> "rejected" olur
+        - Kitap sayısı değişmez (çünkü henüz ödünç verilmemişti)
+    
+    Returns:
+        200: İstek reddedildi
+        400: İstek zaten onaylanmış veya reddedilmiş
+        404: İstek bulunamadı
+        401: Yetkisiz erişim
+        403: Admin yetkisi gerekli
+    """
     loan = Loan.query.get_or_404(loan_id)
     
     if loan.status != "requested":
@@ -210,6 +302,15 @@ def reject_loan(loan_id: int):
 @loan_bp.get("/penalties")
 @jwt_required()
 def my_penalties():
+    """
+    Kullanıcının cezalarını listeler.
+    
+    Endpoint: GET /api/loans/penalties
+    
+    Returns:
+        200: Ceza listesi (tutar, gecikme günü, ödeme durumu dahil)
+        401: Yetkisiz erişim
+    """
     penalties = (
         Penalty.query.join(Loan)
         .filter(Penalty.user_id == g.current_user_id)

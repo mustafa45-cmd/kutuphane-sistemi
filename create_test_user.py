@@ -1,6 +1,15 @@
 """
-Test kullanıcısı oluşturma scripti
-Veritabanı kurulduktan sonra bu scripti çalıştırarak test kullanıcıları oluşturabilirsiniz.
+Test Kullanıcısı Oluşturma Scripti
+
+Bu script, sistemi test etmek için varsayılan kullanıcılar oluşturur:
+- Admin kullanıcı: admin@example.com / admin123
+- Öğrenci kullanıcı: student@example.com / student123
+
+Kullanım:
+    python create_test_user.py
+
+Not: Veritabanı kurulduktan sonra bu scripti çalıştırın.
+     Eğer kullanıcılar zaten varsa, şifreleri güncellenir.
 """
 import sys
 from app import create_app

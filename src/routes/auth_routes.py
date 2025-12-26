@@ -1,3 +1,8 @@
+"""
+Kimlik Doğrulama Route'ları
+Kullanıcı kayıt ve giriş işlemlerini yönetir.
+"""
+
 from flask import Blueprint, jsonify, request
 
 from src.db import db
@@ -5,11 +10,31 @@ from src.models import User
 from src.security import hash_password, verify_password, create_access_token
 
 
+# Kimlik doğrulama blueprint'i
+# URL prefix: /api/auth
 auth_bp = Blueprint("auth", __name__)
 
 
 @auth_bp.post("/register")
 def register():
+    """
+    Yeni kullanıcı kaydı oluşturur.
+    
+    Endpoint: POST /api/auth/register
+    
+    Request Body:
+        {
+            "full_name": "Ad Soyad",
+            "email": "email@example.com",
+            "password": "şifre"
+        }
+    
+    Returns:
+        201: Kayıt başarılı (kullanıcı bilgileri)
+        400: Eksik veya geçersiz veri
+        409: E-posta zaten kayıtlı
+        500: Sunucu hatası
+    """
     try:
         data = request.get_json() or {}
         full_name = data.get("full_name", "").strip()
@@ -49,6 +74,23 @@ def register():
 
 @auth_bp.post("/login")
 def login():
+    """
+    Kullanıcı girişi yapar ve JWT token döndürür.
+    
+    Endpoint: POST /api/auth/login
+    
+    Request Body:
+        {
+            "email": "email@example.com",
+            "password": "şifre"
+        }
+    
+    Returns:
+        200: Giriş başarılı (token ve kullanıcı bilgileri)
+        400: E-posta veya şifre eksik
+        401: Geçersiz e-posta veya şifre
+        500: Sunucu hatası
+    """
     try:
         data = request.get_json() or {}
         email = data.get("email")
