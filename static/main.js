@@ -685,38 +685,48 @@ async function loadPenalties() {
     
     tbody.innerHTML = "";
     
-    // Toplam ödenmemiş ceza hesapla
-    let totalUnpaid = 0;
+    // Aktif ceza sayısını hesapla
+    let activePenalties = 0;
+    let activePenaltyDays = 0;
     
     if (penalties.length === 0) {
       tbody.innerHTML = "<tr><td colspan='5' style='text-align: center;'>Ceza kaydınız bulunmamaktadır</td></tr>";
-      document.getElementById("total-penalty-amount").textContent = "0.00";
+      document.getElementById("total-penalty-amount").textContent = "Yok";
       return;
     }
     
     penalties.forEach((p) => {
-      if (!p.is_paid) {
-        totalUnpaid += p.amount;
+      if (p.is_active) {
+        activePenalties++;
+        activePenaltyDays = Math.max(activePenaltyDays, p.days_remaining);
       }
+      
+      const statusText = p.is_active 
+        ? `<span style="color: red;">⛔ Aktif (${p.days_remaining} gün kaldı)</span>`
+        : '<span style="color: green;">✅ Bitti</span>';
       
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td>${p.book_title || ""}</td>
         <td>${p.days_late} gün</td>
-        <td><strong>${p.amount.toFixed(2)} TL</strong></td>
-        <td>${p.is_paid ? '<span style="color: green;">✅ Ödendi</span>' : '<span style="color: red;">❌ Ödenmedi</span>'}</td>
-        <td>${new Date(p.created_at).toLocaleDateString('tr-TR')}</td>
+        <td><strong>${p.is_active ? `${p.days_remaining} gün daha kitap alamazsınız` : 'Ceza süresi doldu'}</strong></td>
+        <td>${statusText}</td>
+        <td>${new Date(p.penalty_end_date).toLocaleDateString('tr-TR')}</td>
       `;
       tbody.appendChild(tr);
     });
     
-    // Toplam ceza miktarını güncelle
+    // Özet bilgiyi güncelle
     const totalElement = document.getElementById("total-penalty-amount");
     if (totalElement) {
-      totalElement.textContent = totalUnpaid.toFixed(2);
-      if (totalUnpaid > 0) {
+      if (activePenalties > 0) {
+        totalElement.textContent = `${activePenaltyDays} gün daha kitap alamazsınız`;
         totalElement.parentElement.style.background = "#fee2e2";
         totalElement.parentElement.style.borderLeftColor = "#ef4444";
+      } else {
+        totalElement.textContent = "Aktif ceza yok";
+        totalElement.parentElement.style.background = "#fef3c7";
+        totalElement.parentElement.style.borderLeftColor = "#f59e0b";
       }
     }
   } catch (err) {
@@ -743,32 +753,37 @@ async function loadAdminPenalties() {
     }
     
     penalties.forEach((p) => {
+      const statusText = p.is_active 
+        ? `<span style="color: red;">⛔ Aktif (${p.days_remaining} gün kaldı)</span>`
+        : '<span style="color: green;">✅ Bitti</span>';
+      
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td>${p.user_name || ""}</td>
         <td>${p.user_email || ""}</td>
         <td>${p.book_title || ""}</td>
         <td>${p.days_late} gün</td>
-        <td><strong>${p.amount.toFixed(2)} TL</strong></td>
-        <td>${p.is_paid ? '<span style="color: green;">✅ Ödendi</span>' : '<span style="color: red;">❌ Ödenmedi</span>'}</td>
-        <td>${new Date(p.created_at).toLocaleDateString('tr-TR')}</td>
+        <td><strong>${p.is_active ? `${p.days_remaining} gün daha kitap alamaz` : 'Ceza süresi doldu'}</strong></td>
+        <td>${statusText}</td>
+        <td>${new Date(p.penalty_end_date).toLocaleDateString('tr-TR')}</td>
         <td>
-          ${!p.is_paid ? `<button class="mark-paid-btn" data-penalty-id="${p.id}">Ödendi Olarak İşaretle</button>` : ""}
+          ${p.is_active ? `<button class="mark-paid-btn" data-penalty-id="${p.id}">Cezayı Kaldır</button>` : ""}
         </td>
       `;
       tbody.appendChild(tr);
     });
     
-    // "Ödendi olarak işaretle" butonları
+    // "Cezayı kaldır" butonları
     tbody.querySelectorAll("button.mark-paid-btn").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const penaltyId = parseInt(btn.getAttribute("data-penalty-id"), 10);
-        if (!confirm("Bu cezayı ödendi olarak işaretlemek istediğinize emin misiniz?")) return;
+        if (!confirm("Bu cezayı kaldırmak istediğinize emin misiniz?")) return;
         
         try {
-          await apiFetch(`/admin/penalties/${penaltyId}/mark-paid`, { method: "POST" });
-          alert("Ceza ödendi olarak işaretlendi!");
+          await apiFetch(`/admin/penalties/${penaltyId}/remove`, { method: "POST" });
+          alert("Ceza kaldırıldı!");
           await loadAdminPenalties();
+          await loadPenalties();
         } catch (err) {
           alert(err.message);
         }

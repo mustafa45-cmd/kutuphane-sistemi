@@ -118,16 +118,16 @@ class Penalty(db.Model):
     """
     Ceza Modeli
     Gecikmiş kitap iadeleri için otomatik olarak oluşturulan cezaları temsil eder.
+    Ceza: 1 ay süreyle kitap alamama (penalty_end_date tarihine kadar)
     """
     __tablename__ = "penalties"
 
     id = db.Column(db.Integer, primary_key=True)                                     # Birincil anahtar
     loan_id = db.Column(db.Integer, db.ForeignKey("loans.id"), unique=True, nullable=False)  # Ödünç alma ID (benzersiz, yabancı anahtar)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)      # Kullanıcı ID (yabancı anahtar)
-    amount = db.Column(db.Numeric(10, 2), nullable=False)                           # Ceza tutarı (10,2 formatında)
     days_late = db.Column(db.Integer, nullable=False)                               # Gecikme gün sayısı
+    penalty_end_date = db.Column(db.Date, nullable=False)                           # Ceza bitiş tarihi (1 ay sonra)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)     # Ceza oluşturulma tarihi
-    is_paid = db.Column(db.Boolean, nullable=False, default=False)                   # Ceza ödendi mi?
 
     # İlişkiler
     loan = db.relationship("Loan", back_populates="penalty")                         # İlgili ödünç alma kaydı

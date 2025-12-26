@@ -54,6 +54,18 @@ def request_loan():
         if book.available_copies <= 0:
             return jsonify({"message": "Bu kitaptan müsait kopya yok"}), 400
 
+        # Aktif ceza kontrolü (ceza bitiş tarihi bugünden sonra ise)
+        active_penalty = Penalty.query.filter(
+            Penalty.user_id == g.current_user_id,
+            Penalty.penalty_end_date > date.today()
+        ).first()
+        
+        if active_penalty:
+            days_remaining = (active_penalty.penalty_end_date - date.today()).days
+            return jsonify({
+                "message": f"Ceza nedeniyle kitap alamazsınız. Ceza {days_remaining} gün sonra bitecek. (Bitiş: {active_penalty.penalty_end_date.isoformat()})"
+            }), 403
+
         # Admin direkt ödünç alabilir
         if g.current_user_role == "admin":
             loan = Loan(
@@ -131,9 +143,23 @@ def return_book(loan_id: int):
         return jsonify({"message": "Already returned"}), 400
 
     # Stored procedure alternatifi: CALL sp_return_book(:loan_id)
-    loan.return_date = date.today()
-    if loan.return_date > loan.due_date:
+    return_today = date.today()
+    loan.return_date = return_today
+    if return_today > loan.due_date:
         loan.status = "late"
+        # Gecikme varsa ceza oluştur (1 ay kitap alamama)
+        # Trigger otomatik oluşturur, ama Python'da da kontrol edelim
+        existing_penalty = Penalty.query.filter_by(loan_id=loan.id).first()
+        if not existing_penalty:
+            days_late = (return_today - loan.due_date).days
+            penalty_end_date = return_today + timedelta(days=30)  # 1 ay = 30 gün
+            penalty = Penalty(
+                loan_id=loan.id,
+                user_id=loan.user_id,
+                days_late=days_late,
+                penalty_end_date=penalty_end_date
+            )
+            db.session.add(penalty)
     else:
         loan.status = "returned"
 
@@ -166,10 +192,13 @@ def my_loans():
     for l in loans:
         penalty = None
         if l.penalty:
+            days_remaining = (l.penalty.penalty_end_date - date.today()).days if l.penalty.penalty_end_date > date.today() else 0
+            is_active = l.penalty.penalty_end_date > date.today()
             penalty = {
-                "amount": float(l.penalty.amount),
                 "days_late": l.penalty.days_late,
-                "is_paid": l.penalty.is_paid,
+                "penalty_end_date": l.penalty.penalty_end_date.isoformat(),
+                "days_remaining": days_remaining,
+                "is_active": is_active,
             }
         result.append(
             {
@@ -255,6 +284,18 @@ def approve_loan(loan_id: int):
     if book.available_copies <= 0:
         return jsonify({"message": "Bu kitaptan müsait kopya kalmamış"}), 400
     
+    # Aktif ceza kontrolü (kullanıcının cezası varsa kitap alamaz)
+    active_penalty = Penalty.query.filter(
+        Penalty.user_id == loan.user_id,
+        Penalty.penalty_end_date > date.today()
+    ).first()
+    
+    if active_penalty:
+        days_remaining = (active_penalty.penalty_end_date - date.today()).days
+        return jsonify({
+            "message": f"Kullanıcının aktif cezası var. {days_remaining} gün sonra kitap alabilir. (Ceza bitiş: {active_penalty.penalty_end_date.isoformat()})"
+        }), 403
+    
     # İsteği onayla: kitabı azalt ve durumu güncelle
     book.available_copies -= 1
     loan.status = "borrowed"
@@ -308,7 +349,7 @@ def my_penalties():
     Endpoint: GET /api/loans/penalties
     
     Returns:
-        200: Ceza listesi (tutar, gecikme günü, ödeme durumu dahil)
+        200: Ceza listesi (gecikme günü, ceza bitiş tarihi, aktif durumu dahil)
         401: Yetkisiz erişim
     """
     penalties = (
@@ -319,14 +360,17 @@ def my_penalties():
     )
     result = []
     for p in penalties:
+        days_remaining = (p.penalty_end_date - date.today()).days if p.penalty_end_date > date.today() else 0
+        is_active = p.penalty_end_date > date.today()
         result.append(
             {
                 "id": p.id,
                 "loan_id": p.loan_id,
                 "book_title": p.loan.book.title if p.loan and p.loan.book else None,
-                "amount": float(p.amount),
                 "days_late": p.days_late,
-                "is_paid": p.is_paid,
+                "penalty_end_date": p.penalty_end_date.isoformat(),
+                "days_remaining": days_remaining,
+                "is_active": is_active,
                 "created_at": p.created_at.isoformat(),
             }
         )

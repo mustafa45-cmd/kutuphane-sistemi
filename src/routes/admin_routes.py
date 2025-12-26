@@ -6,6 +6,8 @@ Sadece admin rolüne sahip kullanıcılar erişebilir.
 
 from flask import Blueprint, jsonify, request
 
+from datetime import date
+
 from src.decorators import jwt_required
 from src.db import db
 from src.models import Author, Category, User, Penalty, Loan
@@ -278,6 +280,8 @@ def list_all_penalties():
     )
     result = []
     for p in penalties:
+        days_remaining = (p.penalty_end_date - date.today()).days if p.penalty_end_date > date.today() else 0
+        is_active = p.penalty_end_date > date.today()
         result.append(
             {
                 "id": p.id,
@@ -286,40 +290,38 @@ def list_all_penalties():
                 "user_email": p.loan.user.email if p.loan and p.loan.user else None,
                 "loan_id": p.loan_id,
                 "book_title": p.loan.book.title if p.loan and p.loan.book else None,
-                "amount": float(p.amount),
                 "days_late": p.days_late,
-                "is_paid": p.is_paid,
+                "penalty_end_date": p.penalty_end_date.isoformat(),
+                "days_remaining": days_remaining,
+                "is_active": is_active,
                 "created_at": p.created_at.isoformat(),
             }
         )
     return jsonify(result)
 
 
-@admin_bp.post("/penalties/<int:penalty_id>/mark-paid")
+@admin_bp.post("/penalties/<int:penalty_id>/remove")
 @jwt_required(role="admin")
-def mark_penalty_paid(penalty_id: int):
+def remove_penalty(penalty_id: int):
     """
-    Cezayı ödendi olarak işaretler (sadece admin).
+    Cezayı kaldırır (sadece admin) - ceza bitiş tarihini bugüne çeker.
     
-    Endpoint: POST /api/admin/penalties/<penalty_id>/mark-paid
+    Endpoint: POST /api/admin/penalties/<penalty_id>/remove
     
     Returns:
-        200: Ceza ödendi olarak işaretlendi
+        200: Ceza kaldırıldı
         404: Ceza bulunamadı
-        400: Ceza zaten ödendi
         401: Yetkisiz erişim
         403: Admin yetkisi gerekli
     """
     penalty = Penalty.query.get_or_404(penalty_id)
     
-    if penalty.is_paid:
-        return jsonify({"message": "Ceza zaten ödendi olarak işaretlenmiş"}), 400
-    
-    penalty.is_paid = True
+    # Ceza bitiş tarihini bugüne çek (cezayı kaldır)
+    penalty.penalty_end_date = date.today()
     db.session.commit()
     
     return jsonify({
-        "message": "Ceza ödendi olarak işaretlendi",
+        "message": "Ceza kaldırıldı",
         "penalty_id": penalty.id
     })
 
