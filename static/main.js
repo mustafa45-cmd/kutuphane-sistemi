@@ -136,6 +136,8 @@ function updateUI(skipDataLoad = false) {
   const searchSection = document.getElementById("search-section");
   const loansSection = document.getElementById("loans-section");
   const requestsSection = document.getElementById("requests-section");
+  const penaltiesSection = document.getElementById("penalties-section");
+  const adminPenaltiesSection = document.getElementById("admin-penalties-section");
   
   // Token geçerliliğini kontrol et
   if (currentUser && accessToken && isTokenValid()) {
