@@ -36,6 +36,30 @@ header {
   border-bottom: 3px solid #2d3748;
 }
 
+/* Logo Container */
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.logo-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #4a5568;
+  border-radius: 8px;
+  color: white;
+  flex-shrink: 0;
+}
+
+.logo-icon svg {
+  width: 32px;
+  height: 32px;
+}
+
 h1 {
   font-size: 1.75rem;
   margin: 0;
@@ -371,6 +395,58 @@ button.disabled:hover {
 
 .test-user-credentials strong {
   color: #2d3748;
+}
+
+/* Responsive Tasarım */
+@media (max-width: 768px) {
+  header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .logo-container {
+    width: 100%;
+  }
+
+  .logo-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .logo-icon svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+  }
+
+  header > div:last-child {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 480px) {
+  .logo-container {
+    gap: 0.75rem;
+  }
+
+  .logo-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .logo-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  h1 {
+    font-size: 1.25rem;
+  }
 }
 
 
