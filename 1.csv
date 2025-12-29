@@ -1,0 +1,5 @@
+id,full_name,email,password_hash,role,is_active,created_at
+1,"Admin User",admin@example.com,$pbkdf2-sha256$29000$vLc25nzPGWPMeU9pzVlLCQ$4HoazvSIIWGYbTXoRRFVGzImkz4XoyaGU/KEpJNgHKI,admin,1,"2025-12-18 23:31:52"
+2,mustafa,mustafa@mail.com,$2a$12$fAg0nxS2nQZVr1mcMlogmOnqyyRzy5y6UoICsBtdJlB/Y4MxvUTBa,admin,1,"2025-12-18 23:52:40"
+3,"Test Student",student@example.com,$pbkdf2-sha256$29000$jRHifI9xLkWIUQqB8D5HyA$J78leIE7uVn4mpi24wh5yn9Cu63Sb4GOM2W/IeQqPho,student,1,"2025-12-24 09:21:39"
+4,"Mustafa Sarıkaya",mustafa@gmail.com,$pbkdf2-sha256$29000$EQKgNGYMgfD./7/XmrPW.g$3rFz5lvRbqIKiHjRFllz/eEiwUckjJeTm79/.8amqww,student,1,"2025-12-24 10:17:13"

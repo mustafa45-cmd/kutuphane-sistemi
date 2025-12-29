@@ -52,3 +52,5 @@ DELIMITER ;
 
 SELECT 'Trigger basariyla guncellendi! Artik penalty_end_date kullaniliyor.' as result;
 
+
+

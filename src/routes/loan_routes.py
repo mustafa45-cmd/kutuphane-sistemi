@@ -127,48 +127,63 @@ def return_book(loan_id: int):
         - İade tarihi kaydedilir
         - Gecikmiş ise status="late", değilse status="returned"
         - Kitap mevcut kopya sayısı artırılır
-        - Gecikme varsa otomatik ceza oluşturulur (trigger ile)
+        - Gecikme varsa otomatik ceza oluşturulur (trigger ile veya Python'da)
     
     Returns:
         200: Kitap iade edildi
         400: Kitap zaten iade edilmiş
         403: Bu işlem için yetkiniz yok
         404: Ödünç kaydı bulunamadı
+        500: Sunucu hatası
     """
-    loan = Loan.query.get_or_404(loan_id)
-    if loan.user_id != g.current_user_id and g.current_user_role != "admin":
-        return jsonify({"message": "Not allowed"}), 403
+    try:
+        loan = Loan.query.get_or_404(loan_id)
+        if loan.user_id != g.current_user_id and g.current_user_role != "admin":
+            return jsonify({"message": "Not allowed"}), 403
 
-    if loan.return_date is not None:
-        return jsonify({"message": "Already returned"}), 400
+        if loan.return_date is not None:
+            return jsonify({"message": "Already returned"}), 400
 
-    # Stored procedure alternatifi: CALL sp_return_book(:loan_id)
-    return_today = date.today()
-    loan.return_date = return_today
-    if return_today > loan.due_date:
-        loan.status = "late"
-        # Gecikme varsa ceza oluştur (1 ay kitap alamama)
-        # Trigger otomatik oluşturur, ama Python'da da kontrol edelim
-        existing_penalty = Penalty.query.filter_by(loan_id=loan.id).first()
-        if not existing_penalty:
-            days_late = (return_today - loan.due_date).days
-            penalty_end_date = return_today + timedelta(days=30)  # 1 ay = 30 gün
-            penalty = Penalty(
-                loan_id=loan.id,
-                user_id=loan.user_id,
-                days_late=days_late,
-                penalty_end_date=penalty_end_date
-            )
-            db.session.add(penalty)
-    else:
-        loan.status = "returned"
+        # İade işlemi
+        return_today = date.today()
+        loan.return_date = return_today
+        
+        # Gecikme kontrolü
+        if return_today > loan.due_date:
+            loan.status = "late"
+            # Gecikme varsa ceza oluştur (1 ay kitap alamama)
+            # Önce mevcut cezayı kontrol et (trigger oluşturmuş olabilir)
+            existing_penalty = Penalty.query.filter_by(loan_id=loan.id).first()
+            if not existing_penalty:
+                days_late = (return_today - loan.due_date).days
+                penalty_end_date = return_today + timedelta(days=30)  # 1 ay = 30 gün
+                penalty = Penalty(
+                    loan_id=loan.id,
+                    user_id=loan.user_id,
+                    days_late=days_late,
+                    penalty_end_date=penalty_end_date
+                )
+                db.session.add(penalty)
+        else:
+            loan.status = "returned"
 
-    book = Book.query.get(loan.book_id)
-    if book:
-        book.available_copies += 1
+        # Kitap mevcut kopya sayısını artır
+        book = Book.query.get(loan.book_id)
+        if book:
+            book.available_copies += 1
+        else:
+            return jsonify({"message": "Kitap bulunamadı"}), 404
 
-    db.session.commit()
-    return jsonify({"message": "returned"})
+        # Tüm değişiklikleri kaydet
+        db.session.commit()
+        return jsonify({"message": "returned"})
+    
+    except Exception as e:
+        # Hata durumunda rollback yap
+        import traceback
+        traceback.print_exc()
+        db.session.rollback()
+        return jsonify({"message": f"İade işlemi sırasında hata oluştu: {str(e)}"}), 500
 
 
 @loan_bp.get("/my")
